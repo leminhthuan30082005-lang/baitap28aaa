@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game Kiểm Tra Tốc Độ - Nâng Cao (28a)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  body {
+    background: #0f172a;
+    color: #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  
+  /* PART 1: GIAO DIỆN NÂNG CAO */
+  .header { text-align: center; margin-bottom: 15px; }
+  .header h1 { color: #38bdf8; text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+  
+  #dashboard {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 700px;
+    background: #1e293b;
+    padding: 15px 25px;
+    border-radius: 12px 12px 0 0;
+    border: 2px solid #334155;
+    border-bottom: none;
+    font-size: 18px;
+    font-weight: bold;
+  }
+  
+  .stat-group { display: flex; gap: 30px; }
+  .stat-item span { color: #fbbf24; font-size: 22px; }
+  #lives-display { color: #ef4444; font-size: 22px; letter-spacing: 2px; }
+  
+  /* Đồng hồ đếm ngược trực quan */
+  #time-bar-container {
+    width: 100%;
+    height: 10px;
+    background: #334155;
+    margin-bottom: 2px;
+  }
+  #time-bar {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, #10b981, #3b82f6);
+    transition: width 1s linear, background-color 0.3s;
+  }
+  
+  /* KHU VỰC CHƠI */
+  #arena {
+    width: 700px;
+    height: 450px;
+    background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+    border: 2px solid #334155;
+    border-radius: 0 0 12px 12px;
+    position: relative;
+    overflow: hidden;
+    cursor: crosshair;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  
+  /* PART 2: CÁC LOẠI MỤC TIÊU & HIỆU ỨNG */
+  .target {
+    position: absolute;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    font-weight: bold;
+    font-size: 14px;
+    color: rgba(255,255,255,0.8);
+    /* Hiệu ứng Fade In */
+    animation: fadeIn 0.2s ease-out forwards;
+  }
+  
+  /* Mục tiêu chuẩn */
+  .target-green {
+    width: 50px; height: 50px;
+    background: radial-gradient(circle at 30% 30%, #4ade80, #16a34a);
+    box-shadow: 0 0 15px rgba(74, 222, 128, 0.6), inset -3px -3px 8px rgba(0,0,0,0.4);
+  }
+  
+  /* Mục tiêu bẫy/phạt */
+  .target-red {
+    width: 55px; height: 55px;
+    background: radial-gradient(circle at 30% 30%, #f87171, #dc2626);
+    box-shadow: 0 0 15px rgba(248, 113, 113, 0.6), inset -3px -3px 8px rgba(0,0,0,0.4);
+    border: 2px dashed #fecaca;
+  }
+  
+  /* Mục tiêu biến mất nhanh (Bonus) */
+  .target-gold {
+    width: 45px; height: 45px;
+    background: radial-gradient(circle at 30% 30%, #fde047, #ca8a04);
+    box-shadow: 0 0 20px rgba(253, 224, 71, 0.8), inset -3px -3px 8px rgba(0,0,0,0.3);
+    /* Hiệu ứng Shrink */
+    animation: fadeIn 0.2s ease-out forwards, shrink 1.5s linear forwards;
+  }
+  
+  /* CSS Keyframes */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.5); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes shrink {
+    from { transform: scale(1); opacity: 1; }
+    to { transform: scale(0); opacity: 0; }
+  }
+  
+  /* Hiệu ứng chữ nổi khi click */
+  .floating-text {
+    position: absolute;
+    font-weight: bold;
+    font-size: 20px;
+    pointer-events: none;
+    animation: floatUp 0.8s ease-out forwards;
+    text-shadow: 0 2px 4px #000;
+  }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-40px) scale(1.5); }
+  }
+
+  /* BẢNG ĐIỀU KHIỂN */
+  .controls {
+    margin-top: 20px;
+    display: flex;
+    gap: 20px;
+  }
+  button {
+    padding: 12px 30px;
+    font-size: 18px;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  #start-btn { background: #10b981; color: white; }
+  #start-btn:hover { background: #059669; transform: translateY(-2px); }
+  #start-btn:disabled { background: #475569; cursor: not-allowed; transform: none; }
+  
+  #end-btn { background: #ef4444; color: white; }
+  #end-btn:hover { background: #dc2626; transform: translateY(-2px); }
+  #end-btn:disabled { background: #475569; cursor: not-allowed; transform: none; }
+
+  /* Màn hình Game Over */
+  #game-over-screen {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.95);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    text-align: center;
+  }
+  #game-over-screen h2 { font-size: 40px; color: #ef4444; margin-bottom: 10px; }
+  #game-over-screen p { font-size: 24px; margin-bottom: 20px; }
+  #final-score { color: #fbbf24; font-size: 36px; font-weight: bold; }
+
+  /* Hiệu ứng báo phạt (Spam click) */
+  .penalty-flash {
+    position: absolute; inset: 0;
+    background: rgba(239, 68, 68, 0.3);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚡ Game Phản Xạ Nâng Cao</h1>
+</div>
+
+<div id="dashboard">
+  <div class="stat-group">
+    <div class="stat-item">Điểm: <span id="score">0</span></div>
+    <div class="stat-item">Level: <span id="level">1</span></div>
+    <div class="stat-item">Kỷ lục: <span id="high-score">0</span></div>
+  </div>
+  <div class="stat-item">Mạng: <span id="lives-display">❤️❤️❤️</span></div>
+  <div class="stat-item">Thời gian: <span id="timer">30</span>s</div>
+</div>
+
+<div id="time-bar-container">
+  <div id="time-bar"></div>
+</div>
+
+<div id="arena">
+  <div class="penalty-flash" id="penaltyFlash"></div>
+  <div id="game-over-screen">
+    <h2>GAME OVER</h2>
+    <p>Điểm của bạn: <span id="final-score">0</span></p>
+    <button id="restart-btn" onclick="startGame()">Chơi Lại</button>
+  </div>
+</div>
+
+<div class="controls">
+  <button id="start-btn" onclick="startGame()">▶ Bắt Đầu</button>
+  <button id="end-btn" onclick="endGame('quit')" disabled>⏹ Kết Thúc</button>
+</div>
+
+<script>
+  // Khai báo DOM Elements
+  const arena = document.getElementById('arena');
+  const scoreEl = document.getElementById('score');
+  const livesEl = document.getElementById('lives-display');
+  const levelEl = document.getElementById('level');
+  const highScoreEl = document.getElementById('high-score');
+  const timerEl = document.getElementById('timer');
+  const timeBar = document.getElementById('time-bar');
+  const startBtn = document.getElementById('start-btn');
+  const endBtn = document.getElementById('end-btn');
+  const gameOverScreen = document.getElementById('game-over-screen');
+  const finalScoreEl = document.getElementById('final-score');
+  const penaltyFlash = document.getElementById('penaltyFlash');
+
+  // Cấu hình Game
+  const MAX_LIVES = 3;
+  const GAME_TIME = 30;
+  const ARENA_W = 700;
+  const ARENA_H = 450;
+  const TARGET_SIZE = 50; // Kích thước cơ bản để tính va chạm
+  
+  // Trạng thái Game
+  let score = 0;
+  let lives = MAX_LIVES;
+  let level = 1;
+  let timeLeft = GAME_TIME;
+  let isPlaying = false;
+  
+  // Quản lý bộ đếm (Dọn dẹp khi kết thúc)
+  let gameTimer = null;
+  let spawnTimer = null;
+  let activeTargets = []; // Mảng lưu trữ tọa độ mục tiêu đang hiện
+  let isClickLocked = false; // Khóa click (Anti-Bot)
+  
+  // Cấu hình độ khó (Dynamic Scaling)
+  let spawnInterval = 1000; // Mặc định 1s mọc 1 cái
+  let targetDuration = 2500; // Mục tiêu thường tồn tại 2.5s
+  
+  // --- PART 2D: BẢO MẬT ĐIỂM SỐ (Obfuscate High Score) ---
+  const SECRET_KEY = "MY_SECRET_2024";
+  
+  function encodeScore(s) {
+    // Mã hóa XOR đơn giản để tránh người dùng F12 sửa trực tiếp
+    let str = btoa(s.toString()); // Base64
+    let result = "";
+    for(let i = 0; i < str.length; i++) {
+      result += String.fromCharCode(str.charCodeAt(i) ^ SECRET_KEY.charCodeAt(i % SECRET_KEY.length));
+    }
+    return btoa(result); // Mã hóa lần 2
+  }
+  
+  function decodeScore(encoded) {
+    try {
+      let decoded1 = atob(encoded);
+      let result = "";
+      for(let i = 0; i < decoded1.length; i++) {
+        result += String.fromCharCode(decoded1.charCodeAt(i) ^ SECRET_KEY.charCodeAt(i % SECRET_KEY.length));
+      }
+      return parseInt(atob(result)) || 0;
+    } catch(e) {
+      return 0; // Nếu dữ liệu bị sửa đổi lỗi, trả về 0
+    }
+  }
+  
+  // Khởi tạo High Score
+  let highScore = decodeScore(localStorage.getItem("hs_obf"));
+  highScoreEl.textContent = highScore;
+
+  // --- HÀM TIỆN ÍCH ---
+  function getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function updateUI() {
+    scoreEl.textContent = score;
+    levelEl.textContent = level;
+    timerEl.textContent = Math.ceil(timeLeft);
+    
+    // Cập nhật thanh thời gian
+    let percentage = (timeLeft / GAME_TIME) * 100;
+    timeBar.style.width = `${percentage}%`;
+    if (percentage < 20) timeBar.style.background = "#ef4444";
+    else timeBar.style.background = "linear-gradient(90deg, #10b981, #3b82f6)";
+    
+    // Cập nhật mạng
+    livesEl.textContent = "❤️".repeat(lives) + "🖤".repeat(MAX_LIVES - lives);
+  }
+
+  // --- PART 2B: THUẬT TOÁN CHỐNG CHỒNG LẤN ---
+  function getValidPosition(newSize) {
+    let attempts = 0;
+    const maxAttempts = 30;
+    
+    while (attempts < maxAttempts) {
+      let x = getRandomInt(0, ARENA_W - newSize);
+      let y = getRandomInt(0, ARENA_H - newSize);
+      let overlap = false;
+      
+      // Kiểm tra va chạm với các mục tiêu đang hiện
+      for (let t of activeTargets) {
+        // Khoảng cách giữa 2 tâm
+        let dx = (x + newSize/2) - (t.x + t.size/2);
+        let dy = (y + newSize/2) - (t.y + t.size/2);
+        let distance = Math.sqrt(dx*dx + dy*dy);
+        
+        // Nếu khoảng cách nhỏ hơn tổng bán kính + 10px đệm -> Chồng lấn
+        if (distance < (newSize/2 + t.size/2 + 10)) {
+          overlap = true;
+          break;
+        }
+      }
+      
+      if (!overlap) return { x, y };
+      attempts++;
+    }
+    return { x: getRandomInt(0, ARENA_W - newSize), y: getRandomInt(0, ARENA_H - newSize) }; // Fallback
+  }
+
+  // --- PART 2A: SINH MỤC TIÊU ---
+  function spawnTarget() {
+    if (!isPlaying) return;
+
+    // Xác định loại mục tiêu (Tỷ lệ: 65% Xanh, 20% Đỏ, 15% Vàng)
+    let rand = Math.random();
+    let type = 'green';
+    let size = 50;
+    let duration = targetDuration;
+    
+    if (rand > 0.85) {
+      type = 'gold';
+      size = 45;
+      duration = 1500; // Cứng 1.5s
+    } else if (rand > 0.65) {
+      type = 'red';
+      size = 55;
+    }
+
+    // Lấy tọa độ không chồng lấn
+    let pos = getValidPosition(size);
+    
+    // Tạo DOM Element
+    const targetEl = document.createElement('div');
+    targetEl.className = `target target-${type}`;
+    targetEl.style.left = pos.x + 'px';
+    targetEl.style.top = pos.y + 'px';
+    
+    // Thêm text hiển thị cho dễ nhìn
+    if(type === 'green') targetEl.textContent = "+1";
+    if(type === 'red') targetEl.textContent = "-2";
+    if(type === 'gold') targetEl.textContent = "+3";
+
+    // Lưu vào mảng quản lý
+    let targetData = {
+      el: targetEl,
+      x: pos.x,
+      y: pos.y,
+      size: size,
+      type: type,
+      timer: null
+    };
+    activeTargets.push(targetData);
+    arena.appendChild(targetEl);
+
+    // --- PART 2C: XỬ LÝ SỰ KIỆN CLICK TRÚNG ---
+    targetEl.onclick = (e) => {
+      e.stopPropagation(); // Ngăn sự kiện click lan ra arena (tránh bị phạt oan)
+      if (!isPlaying || isClickLocked) return;
+      
+      handleHit(targetData);
+    };
+
+    // Hẹn giờ biến mất
+    targetData.timer = setTimeout(() => {
+      handleMiss(targetData);
+    }, duration);
+  }
+
+  // Xử lý khi click TRÚNG mục tiêu
+  function handleHit(targetData) {
+    clearTimeout(targetData.timer);
+    removeTarget(targetData);
+    
+    let floatText = "";
+    let floatColor = "";
+    
+    if (targetData.type === 'green') {
+      score += 1;
+      floatText = "+1"; floatColor = "#4ade80";
+      createFloatingText(targetData.x, targetData.y, floatText, floatColor);
+    } 
+    else if (targetData.type === 'red') {
+      score -= 2;
+      if(score < 0) score = 0;
+      floatText = "-2"; floatColor = "#f87171";
+      createFloatingText(targetData.x, targetData.y, floatText, floatColor);
+    } 
+    else if (targetData.type === 'gold') {
+      score += 3;
+      timeLeft += 2; // Cộng thêm 2s
+      floatText = "+3 (Time +2s)"; floatColor = "#fde047";
+      createFloatingText(targetData.x, targetData.y, floatText, floatColor);
+    }
+
+    updateUI();
+    checkLevelUp();
+  }
+
+  // Xử lý khi mục tiêu tự BIẾN MẤT (không click kịp)
+  function handleMiss(targetData) {
+    if (!isPlaying) return;
+    removeTarget(targetData);
+    
+    // Nếu là mục tiêu Vàng không click kịp -> Phạt mất 1 mạng
+    if (targetData.type === 'gold') {
+      loseLife();
+      createFloatingText(targetData.x, targetData.y, "Mất mạng!", "#ef4444");
+    }
+  }
+
+  // Xóa mục tiêu khỏi màn hình & mảng quản lý
+  function removeTarget(targetData) {
+    if (targetData.el && targetData.el.parentNode) {
+      targetData.el.remove();
+    }
+    activeTargets = activeTargets.filter(t => t !== targetData);
+  }
+
+  // Xử lý mất mạng
+  function loseLife() {
+    if (!isPlaying) return;
+    lives--;
+    updateUI();
+    
+    // Hiệu ứng chớp đỏ màn hình
+    penaltyFlash.style.opacity = "1";
+    setTimeout(() => penaltyFlash.style.opacity = "0", 150);
+
+    if (lives <= 0) {
+      endGame('gameover');
+    }
+  }
+
+  // Hiệu ứng chữ bay lên
+  function createFloatingText(x, y, text, color) {
+    const el = document.createElement('div');
+    el.className = 'floating-text';
+    el.textContent = text;
+    el.style.color = color;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    arena.appendChild(el);
+    
+    setTimeout(() => el.remove(), 800);
+  }
+
+  // --- PART 2B: TĂNG ĐỘ KHÓ (DYNAMIC SCALING) ---
+  function checkLevelUp() {
+    let newLevel = Math.floor(score / 10) + 1;
+    
+    if (newLevel > level) {
+      level = newLevel;
+      
+      // Giảm 15% thời gian mọc và thời gian tồn tại
+      spawnInterval = Math.max(300, spawnInterval * 0.85); 
+      targetDuration = Math.max(800, targetDuration * 0.85);
+      
+      // Reset lại bộ đếm spawn
+      if (isPlaying) {
+        clearInterval(spawnTimer);
+        spawnTimer = setInterval(spawnTarget, spawnInterval);
+      }
+      updateUI();
+    }
+  }
+
+  // --- PART 2D: CHỐNG SPAM CLICK (ANTI-BOT) ---
+  arena.addEventListener('click', (e) => {
+    if (!isPlaying) return;
+    
+    // Nếu click vào vùng trống (không trúng mục tiêu, vì mục tiêu đã stopPropagation)
+    if (isClickLocked) return;
+
+    // Kích hoạt khóa click 0.5s
+    isClickLocked = true;
+    arena.style.cursor = "not-allowed";
+    
+    // Phạt trừ 1 điểm
+    if (score > 0) {
+      score--;
+      updateUI();
+    }
+    
+    createFloatingText(e.offsetX - 20, e.offsetY - 20, "Spam! -1", "#ef4444");
+    
+    // Hiệu ứng chớp đỏ
+    penaltyFlash.style.opacity = "1";
+    setTimeout(() => penaltyFlash.style.opacity = "0", 150);
+
+    setTimeout(() => {
+      isClickLocked = false;
+      arena.style.cursor = "crosshair";
+    }, 500);
+  });
+
+  // --- QUẢN LÝ VÒNG ĐỜI GAME (LIFECYCLE) ---
+  function startGame() {
+    // Dọn dẹp sạch sẽ các tiến trình cũ (Chống Memory Leak)
+    cleanupGame();
+
+    // Reset trạng thái
+    score = 0;
+    lives = MAX_LIVES;
+    level = 1;
+    timeLeft = GAME_TIME;
+    spawnInterval = 1000;
+    targetDuration = 2500;
+    isPlaying = true;
+    isClickLocked = false;
+    
+    updateUI();
+    gameOverScreen.style.display = "none";
+    startBtn.disabled = true;
+    endBtn.disabled = false;
+
+    // Bộ đếm thời gian chính
+    gameTimer = setInterval(() => {
+      timeLeft--;
+      if (timeLeft <= 0) {
+        timeLeft = 0;
+        updateUI();
+        endGame('timeup');
+      } else {
+        updateUI();
+      }
+    }, 1000);
+
+    // Khởi động mọc mục tiêu
+    spawnTimer = setInterval(spawnTarget, spawnInterval);
+    spawnTarget(); // Mọc ngay 1 cái đầu tiên
+  }
+
+  function endGame(reason) {
+    if (!isPlaying) return;
+    isPlaying = false;
+    
+    // Khóa thao tác
+    startBtn.disabled = false;
+    endBtn.disabled = true;
+    
+    // Dọn dẹp bộ đếm
+    clearInterval(gameTimer);
+    clearInterval(spawnTimer);
+    
+    // Xóa tất cả mục tiêu đang trên màn hình
+    activeTargets.forEach(t => {
+      clearTimeout(t.timer);
+      if(t.el) t.el.remove();
+    });
+    activeTargets = [];
+
+    // Cập nhật High Score nếu có
+    if (score > highScore) {
+      highScore = score;
+      localStorage.setItem("hs_obf", encodeScore(highScore));
+      highScoreEl.textContent = highScore;
+    }
+
+    // Hiển thị màn hình kết thúc
+    finalScoreEl.textContent = score;
+    gameOverScreen.style.display = "flex";
+    
+    let title = "GAME OVER";
+    if (reason === 'timeup') title = "HẾT GIỜ!";
+    if (reason === 'quit') title = "ĐÃ KẾT THÚC";
+    gameOverScreen.querySelector('h2').textContent = title;
+  }
+
+  // Hàm dọn dẹp tài nguyên tổng thể
+  function cleanupGame() {
+    clearInterval(gameTimer);
+    clearInterval(spawnTimer);
+    activeTargets.forEach(t => {
+      clearTimeout(t.timer);
+      if(t.el) t.el.remove();
+    });
+    activeTargets = [];
+    gameOverScreen.style.display = "none";
+  }
+
+</script>
+</body>
+</html>
